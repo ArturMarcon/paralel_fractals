@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define WIDTH 3840
-#define HEIGHT 2160
+#define WIDTH 7680
+#define HEIGHT 4320
 #define MAX_ITER 10000
 
 const double C_REAL = -0.8;
@@ -11,8 +11,8 @@ const double C_IMAG = 0.156;
 
 int compute_julia_pixel(int x, int y) {
 
-  double z_real = 0.5 * (x - WIDTH / 2.0) / (0.5 * WIDTH);
-  double z_imag = 0.5 * (y - HEIGHT / 2.0) / (0.5 * HEIGHT);
+  double z_real = 0.1 * (x - WIDTH / 2.0) / (0.5 * WIDTH);
+  double z_imag = 0.1 * (y - HEIGHT / 2.0) / (0.5 * HEIGHT);
 
   int iter;
   for (iter = 0; iter < MAX_ITER; iter++) {
@@ -48,7 +48,7 @@ int main() {
  * Estatico: #pragma omp parallel for schedule(static)
  * Dinamico: #pragma omp parallel for schedule(dynamic, 64)
  */
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(dynamic, 128)
   for (int y = 0; y < HEIGHT; y++) {
     for (int x = 0; x < WIDTH; x++) {
       int iter = compute_julia_pixel(x, y);
