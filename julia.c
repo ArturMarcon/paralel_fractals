@@ -1,6 +1,7 @@
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define WIDTH 7680
 #define HEIGHT 4320
@@ -30,25 +31,43 @@ int compute_julia_pixel(int x, int y) {
   return iter;
 }
 
-int main() {
-  int *image = (int *)malloc(WIDTH * HEIGHT * sizeof(int));
-  if (image == NULL) {
-    printf("Erro fatal: falha ao alocar memoria para a imagem.\n");
+int main(int argc, char *argv[]) {
+  if (argc < 4) {
+    fprintf(
+        stderr,
+        "Uso: %s <num_threads> <tipo_schedule (static|dynamic)> <chunk_size>\n",
+        argv[0]);
     return 1;
   }
 
-  printf("Iniciando calculo do Conjunto de Julia...\n");
-  printf("Resolucao: %dx%d\n", WIDTH, HEIGHT);
-  printf("Limite de iteracoes: %d\n", MAX_ITER);
-  printf("Constante C: %f + %fi\n", C_REAL, C_IMAG);
+  int num_threads = atoi(argv[1]);
+  char *sched_type_str = argv[2];
+  int chunk_size = atoi(argv[3]);
+
+  // Configura o tipo de escalonamento
+  omp_sched_t sched_type = omp_sched_static;
+  if (strcmp(sched_type_str, "dynamic") == 0) {
+    sched_type = omp_sched_dynamic;
+  }
+
+  // Define as configurações do OpenMP para a execução atual
+  omp_set_num_threads(num_threads);
+  omp_set_schedule(sched_type, chunk_size);
+
+  int *image = (int *)malloc(WIDTH * HEIGHT * sizeof(int));
+  if (image == NULL) {
+    fprintf(stderr, "Erro fatal: falha ao alocar memoria para a imagem.\n");
+    return 1;
+  }
+
+  fprintf(stderr, "Iniciando: %d threads | %s | chunk: %d\n", num_threads,
+          sched_type_str, chunk_size);
 
   double start_time = omp_get_wtime();
 
-/* *
- * Estatico: #pragma omp parallel for schedule(static)
- * Dinamico: #pragma omp parallel for schedule(dynamic, 64)
- */
-#pragma omp parallel for schedule(dynamic, 128)
+// schedule(runtime) delega a decisão para as configurações definidas via
+// omp_set_schedule
+#pragma omp parallel for schedule(runtime)
   for (int y = 0; y < HEIGHT; y++) {
     for (int x = 0; x < WIDTH; x++) {
       int iter = compute_julia_pixel(x, y);
@@ -59,9 +78,9 @@ int main() {
   double end_time = omp_get_wtime();
   double total_time = end_time - start_time;
 
-  printf("-> Tempo total de execucao: %f segundos\n", total_time);
+  // Imprime apenas os dados no stdout para facilitar a coleta no script
+  printf("%d,%s,%d,%f\n", num_threads, sched_type_str, chunk_size, total_time);
 
-  printf("Salvando a imagem no disco...\n");
   FILE *fp = fopen("fractal_julia.pgm", "wb");
   if (fp != NULL) {
     fprintf(fp, "P2\n%d %d\n%d\n", WIDTH, HEIGHT, MAX_ITER);
@@ -72,9 +91,6 @@ int main() {
       }
     }
     fclose(fp);
-    printf("Concluido! Imagem salva como 'fractal_julia.pgm'.\n");
-  } else {
-    printf("Erro ao criar o arquivo de imagem.\n");
   }
 
   free(image);
