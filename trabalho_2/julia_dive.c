@@ -6,7 +6,7 @@
 #define WIDTH 1920
 #define HEIGHT 1080
 #define MAX_ITER 2000
-#define TOTAL_FRAMES 300
+#define DEFAULT_TOTAL_FRAMES 300
 
 // MPI Message Tags
 #define TAG_WORK 1
@@ -99,15 +99,24 @@ int main(int argc, char *argv[]) {
 
     double target_real = -0.1;
     double target_imag = -0.1;
+    int total_frames = DEFAULT_TOTAL_FRAMES;
+    int save_files = 1;
 
-    if (argc == 3) {
+    if (argc >= 3) {
         target_real = atof(argv[1]);
         target_imag = atof(argv[2]);
+    }
+    if (argc >= 4) {
+        total_frames = atoi(argv[3]);
+    }
+    if (argc >= 5) {
+        save_files = atoi(argv[4]);
     }
 
     if (size < 2) {
         if (rank == 0) {
             fprintf(stderr, "Error: This Master-Worker model requires at least 2 MPI processes.\n");
+            fprintf(stderr, "Usage: %s [target_real target_imag [total_frames [save_files]]]\n", argv[0]);
         }
         MPI_Finalize();
         return 1;
@@ -117,14 +126,16 @@ int main(int argc, char *argv[]) {
 
     if (rank == 0) {
         // ================= MASTER RANK =================
-        printf("[Master] Rendering smooth gradient frames into coordinates: (%f, %f)\n", target_real, target_imag);
+        printf("[Master] Rendering %d frames into (%f, %f), workers=%d, save_files=%d\n",
+               total_frames, target_real, target_imag, size - 1, save_files);
         double start_time = MPI_Wtime();
+        double io_time = 0.0;
 
         int next_frame = 0;
         int active_workers = size - 1;
 
         for (int worker = 1; worker < size; worker++) {
-            if (next_frame < TOTAL_FRAMES) {
+            if (next_frame < total_frames) {
                 MPI_Send(&next_frame, 1, MPI_INT, worker, TAG_WORK, MPI_COMM_WORLD);
                 next_frame++;
             } else {
@@ -136,16 +147,20 @@ int main(int argc, char *argv[]) {
         unsigned char *recv_buffer = (unsigned char *)malloc(frame_buffer_size);
         while (active_workers > 0) {
             MPI_Status status;
-            
-            MPI_Recv(recv_buffer, (int)frame_buffer_size, MPI_BYTE, MPI_ANY_SOURCE, 
+
+            MPI_Recv(recv_buffer, (int)frame_buffer_size, MPI_BYTE, MPI_ANY_SOURCE,
                      MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            
+
             int worker_id = status.MPI_SOURCE;
-            int completed_frame_id = status.MPI_TAG; 
+            int completed_frame_id = status.MPI_TAG;
 
-            save_ppm(completed_frame_id, recv_buffer);
+            if (save_files) {
+                double io0 = MPI_Wtime();
+                save_ppm(completed_frame_id, recv_buffer);
+                io_time += MPI_Wtime() - io0;
+            }
 
-            if (next_frame < TOTAL_FRAMES) {
+            if (next_frame < total_frames) {
                 MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_WORK, MPI_COMM_WORLD);
                 next_frame++;
             } else {
@@ -156,11 +171,41 @@ int main(int argc, char *argv[]) {
 
         free(recv_buffer);
         double end_time = MPI_Wtime();
-        printf("[Master] Completed in %.4f seconds.\n", end_time - start_time);
+        double total_time = end_time - start_time;
+
+        // Collect per-worker stats for load-balance analysis using a collective
+        // gather. Done AFTER the dispatch loop so the main-loop MPI_Recv (which
+        // uses MPI_ANY_TAG) cannot accidentally consume stats messages.
+        double local_stats[2] = {0.0, 0.0};
+        double *all_stats = (double *)malloc(2 * size * sizeof(double));
+        MPI_Gather(local_stats, 2, MPI_DOUBLE, all_stats, 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+        printf("[Master] total=%.4fs  io=%.4fs  comm+wait=%.4fs\n",
+               total_time, io_time, total_time - io_time);
+        printf("[Master] worker_id,frames_processed,compute_time_s\n");
+
+        int total_frames_check = 0;
+        double max_compute = 0.0, min_compute = 1e18, sum_compute = 0.0;
+        for (int worker = 1; worker < size; worker++) {
+            int wframes = (int)all_stats[2 * worker];
+            double wtime = all_stats[2 * worker + 1];
+            total_frames_check += wframes;
+            if (wtime > max_compute) max_compute = wtime;
+            if (wtime < min_compute) min_compute = wtime;
+            sum_compute += wtime;
+            printf("[Master] %d,%d,%.4f\n", worker, wframes, wtime);
+        }
+        double avg_compute = sum_compute / (size - 1);
+        double imbalance = (max_compute - min_compute) / (max_compute > 0 ? max_compute : 1.0);
+        printf("[Master] frames_total=%d  avg_compute=%.4fs  max=%.4f  min=%.4f  imbalance=%.2f%%\n",
+               total_frames_check, avg_compute, max_compute, min_compute, imbalance * 100.0);
+        free(all_stats);
 
     } else {
         // ================= WORKER RANKS =================
         unsigned char *local_buffer = (unsigned char *)malloc(frame_buffer_size);
+        int frames_processed = 0;
+        double compute_time = 0.0;
 
         while (1) {
             int frame_to_build;
@@ -169,13 +214,19 @@ int main(int argc, char *argv[]) {
             MPI_Recv(&frame_to_build, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             if (status.MPI_TAG == TAG_DIE) {
-                break; 
+                break;
             }
 
+            double c0 = MPI_Wtime();
             compute_julia_frame(frame_to_build, target_real, target_imag, local_buffer);
+            compute_time += MPI_Wtime() - c0;
+            frames_processed++;
 
             MPI_Send(local_buffer, (int)frame_buffer_size, MPI_BYTE, 0, frame_to_build, MPI_COMM_WORLD);
         }
+
+        double local_stats[2] = { (double)frames_processed, compute_time };
+        MPI_Gather(local_stats, 2, MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         free(local_buffer);
     }
