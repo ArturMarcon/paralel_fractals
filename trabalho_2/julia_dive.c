@@ -8,23 +8,25 @@
 #define MAX_ITER 2000
 #define TOTAL_FRAMES 300
 
-// MPI Message Tags
-#define TAG_WORK 1
-#define TAG_DIE 2
+/* Tags MPI. O resultado usa (TAG_RESULT_BASE + id do quadro) para evitar
+ * colisao do quadro 0 com TAG_REQUEST. */
+#define TAG_REQUEST 0
+#define TAG_WORK    1
+#define TAG_DIE     2
+#define TAG_RESULT_BASE 3
 
-// Julia set constant configuration
 const double C_REAL = -0.7;
 const double C_IMAG = 0.27015;
 
-// Define 3 cool colors matching the first program: Night Blue -> Electric Cyan -> Deep Purple
-const int COLOR1_R = 10;   const int COLOR1_G = 15;   const int COLOR1_B = 45;   // Night Blue
-const int COLOR2_R = 0;    const int COLOR2_G = 225;  const int COLOR2_B = 235;  // Electric Cyan
-const int COLOR3_R = 140;  const int COLOR3_G = 25;   const int COLOR3_B = 230;  // Deep Purple
+/* Tres cores frias: Azul Noite -> Ciano Eletrico -> Roxo Profundo */
+const int COLOR1_R = 10;   const int COLOR1_G = 15;   const int COLOR1_B = 45;
+const int COLOR2_R = 0;    const int COLOR2_G = 225;  const int COLOR2_B = 235;
+const int COLOR3_R = 140;  const int COLOR3_G = 25;   const int COLOR3_B = 230;
 
-// Computes a single frame's pixel data into a raw RGB buffer
+/* Calcula um quadro (unidade de trabalho) gerando os pixels RGB no buffer */
 void compute_julia_frame(int frame_id, double center_real, double center_imag, unsigned char *buffer) {
     double zoom = pow(0.94, frame_id);
-    
+
     double base_width = 3.0;
     double current_width = base_width * zoom;
     double current_height = current_width * ((double)HEIGHT / (double)WIDTH);
@@ -42,7 +44,7 @@ void compute_julia_frame(int frame_id, double center_real, double center_imag, u
                 double temp = z_real_sq - z_imag_sq + C_REAL;
                 z_imag = 2.0 * z_real * z_imag + C_IMAG;
                 z_real = temp;
-                
+
                 z_real_sq = z_real * z_real;
                 z_imag_sq = z_imag * z_imag;
                 iter++;
@@ -51,21 +53,19 @@ void compute_julia_frame(int frame_id, double center_real, double center_imag, u
             size_t pixel_idx = (size_t)(y * WIDTH + x) * 3;
 
             if (iter == MAX_ITER) {
-                // Fractal interior (Black)
-                buffer[pixel_idx]     = 0;   
+                buffer[pixel_idx]     = 0;
                 buffer[pixel_idx + 1] = 0;
                 buffer[pixel_idx + 2] = 0;
             } else {
-                // Normalized iteration value for smooth 3-color transition
                 double mu = (double)iter / MAX_ITER;
 
                 if (mu < 0.5) {
-                    double t = mu * 2.0; // Scale to [0, 1]
+                    double t = mu * 2.0;
                     buffer[pixel_idx]     = (unsigned char)((1.0 - t) * COLOR1_R + t * COLOR2_R);
                     buffer[pixel_idx + 1] = (unsigned char)((1.0 - t) * COLOR1_G + t * COLOR2_G);
                     buffer[pixel_idx + 2] = (unsigned char)((1.0 - t) * COLOR1_B + t * COLOR2_B);
                 } else {
-                    double t = (mu - 0.5) * 2.0; // Scale to [0, 1]
+                    double t = (mu - 0.5) * 2.0;
                     buffer[pixel_idx]     = (unsigned char)((1.0 - t) * COLOR2_R + t * COLOR3_R);
                     buffer[pixel_idx + 1] = (unsigned char)((1.0 - t) * COLOR2_G + t * COLOR3_G);
                     buffer[pixel_idx + 2] = (unsigned char)((1.0 - t) * COLOR2_B + t * COLOR3_B);
@@ -81,7 +81,7 @@ void save_ppm(int frame_id, unsigned char *buffer) {
 
     FILE *fp = fopen(filename, "wb");
     if (!fp) {
-        fprintf(stderr, "Error opening file %s for writing.\n", filename);
+        fprintf(stderr, "Erro ao abrir o arquivo %s para escrita.\n", filename);
         return;
     }
 
@@ -99,82 +99,126 @@ int main(int argc, char *argv[]) {
 
     double target_real = -0.1;
     double target_imag = -0.1;
+    int total_frames = TOTAL_FRAMES;
 
-    if (argc == 3) {
+    /* Args opcionais: <real> <imag> [nframes].
+     * nframes permite variar o tamanho do problema para o speed-up fraco. */
+    if (argc >= 3) {
         target_real = atof(argv[1]);
         target_imag = atof(argv[2]);
     }
-
-    if (size < 2) {
-        if (rank == 0) {
-            fprintf(stderr, "Error: This Master-Worker model requires at least 2 MPI processes.\n");
-        }
-        MPI_Finalize();
-        return 1;
+    if (argc >= 4) {
+        total_frames = atoi(argv[3]);
     }
 
     size_t frame_buffer_size = (size_t)WIDTH * HEIGHT * 3 * sizeof(unsigned char);
 
+    /* np == 1: modo sequencial, linha de base para o Speed-Up */
+    if (size == 1) {
+        printf("[Sequencial] Renderizando %d quadros no alvo (%f, %f)\n",
+               total_frames, target_real, target_imag);
+        double start_time = MPI_Wtime();
+
+        unsigned char *buffer = (unsigned char *)malloc(frame_buffer_size);
+        for (int f = 0; f < total_frames; f++) {
+            compute_julia_frame(f, target_real, target_imag, buffer);
+            save_ppm(f, buffer);
+        }
+        free(buffer);
+
+        double end_time = MPI_Wtime();
+        printf("[Sequencial] Concluido em %.4f segundos.\n", end_time - start_time);
+
+        MPI_Finalize();
+        return 0;
+    }
+
     if (rank == 0) {
-        // ================= MASTER RANK =================
-        printf("[Master] Rendering smooth gradient frames into coordinates: (%f, %f)\n", target_real, target_imag);
+        /* Coordenador: gerencia o saco de trabalho, distribui sob demanda e
+         * grava os resultados na ordem de chegada (sem calcular quadros). */
+        printf("[Mestre] Distribuindo %d quadros entre %d trabalhadores. Alvo: (%f, %f)\n",
+               total_frames, size - 1, target_real, target_imag);
+
+        MPI_Barrier(MPI_COMM_WORLD); /* sincroniza todos antes de cronometrar */
         double start_time = MPI_Wtime();
 
         int next_frame = 0;
+        int frames_saved = 0;
         int active_workers = size - 1;
 
-        for (int worker = 1; worker < size; worker++) {
-            if (next_frame < TOTAL_FRAMES) {
-                MPI_Send(&next_frame, 1, MPI_INT, worker, TAG_WORK, MPI_COMM_WORLD);
-                next_frame++;
-            } else {
-                MPI_Send(&next_frame, 1, MPI_INT, worker, TAG_DIE, MPI_COMM_WORLD);
-                active_workers--;
-            }
-        }
-
+        int *work_count = (int *)calloc(size, sizeof(int)); /* quadros por trabalhador */
         unsigned char *recv_buffer = (unsigned char *)malloc(frame_buffer_size);
-        while (active_workers > 0) {
+
+        while (frames_saved < total_frames || active_workers > 0) {
             MPI_Status status;
-            
-            MPI_Recv(recv_buffer, (int)frame_buffer_size, MPI_BYTE, MPI_ANY_SOURCE, 
-                     MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            
+
+            /* Espia a mensagem; do mesmo par, o resultado chega antes do proximo pedido */
+            MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             int worker_id = status.MPI_SOURCE;
-            int completed_frame_id = status.MPI_TAG; 
 
-            save_ppm(completed_frame_id, recv_buffer);
+            if (status.MPI_TAG == TAG_REQUEST) {
+                int dummy;
+                MPI_Recv(&dummy, 1, MPI_INT, worker_id, TAG_REQUEST,
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-            if (next_frame < TOTAL_FRAMES) {
-                MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_WORK, MPI_COMM_WORLD);
-                next_frame++;
+                if (next_frame < total_frames) {
+                    MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_WORK, MPI_COMM_WORLD);
+                    next_frame++;
+                } else {
+                    int term = -1;
+                    MPI_Send(&term, 1, MPI_INT, worker_id, TAG_DIE, MPI_COMM_WORLD);
+                    active_workers--;
+                }
             } else {
-                MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_DIE, MPI_COMM_WORLD);
-                active_workers--;
+                int completed_frame_id = status.MPI_TAG - TAG_RESULT_BASE;
+                MPI_Recv(recv_buffer, (int)frame_buffer_size, MPI_BYTE, worker_id,
+                         status.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                save_ppm(completed_frame_id, recv_buffer);
+                frames_saved++;
+                work_count[worker_id]++;
             }
         }
 
-        free(recv_buffer);
         double end_time = MPI_Wtime();
-        printf("[Master] Completed in %.4f seconds.\n", end_time - start_time);
+        printf("[Mestre] Concluido em %.4f segundos.\n", end_time - start_time);
+
+        /* Relatorio de balanceamento de carga */
+        int min_w = total_frames, max_w = 0;
+        printf("[Mestre] Quadros processados por trabalhador:\n");
+        for (int w = 1; w < size; w++) {
+            printf("         trabalhador %d: %d quadros\n", w, work_count[w]);
+            if (work_count[w] < min_w) min_w = work_count[w];
+            if (work_count[w] > max_w) max_w = work_count[w];
+        }
+        printf("[Mestre] Balanceamento -> min: %d | max: %d | media: %.2f quadros/trabalhador\n",
+               min_w, max_w, (double)total_frames / (size - 1));
+
+        free(work_count);
+        free(recv_buffer);
 
     } else {
-        // ================= WORKER RANKS =================
+        /* Trabalhador: toma a iniciativa de pedir, processa e devolve */
         unsigned char *local_buffer = (unsigned char *)malloc(frame_buffer_size);
+
+        MPI_Barrier(MPI_COMM_WORLD); /* sincroniza com o mestre antes de cronometrar */
 
         while (1) {
             int frame_to_build;
             MPI_Status status;
 
-            MPI_Recv(&frame_to_build, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            int request = rank;
+            MPI_Send(&request, 1, MPI_INT, 0, TAG_REQUEST, MPI_COMM_WORLD);
 
+            MPI_Recv(&frame_to_build, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             if (status.MPI_TAG == TAG_DIE) {
-                break; 
+                break;
             }
 
             compute_julia_frame(frame_to_build, target_real, target_imag, local_buffer);
 
-            MPI_Send(local_buffer, (int)frame_buffer_size, MPI_BYTE, 0, frame_to_build, MPI_COMM_WORLD);
+            MPI_Send(local_buffer, (int)frame_buffer_size, MPI_BYTE, 0,
+                     TAG_RESULT_BASE + frame_to_build, MPI_COMM_WORLD);
         }
 
         free(local_buffer);
