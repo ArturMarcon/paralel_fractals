@@ -112,7 +112,7 @@ def main():
         plt.savefig(outdir / fname, dpi=150)
         plt.close()
 
-    plt.figure(figsize=(6, 4.5))
+    plt.figure(figsize=(7, 3))
     plt.plot(strong_par["workers"], strong_par["speedup"], "o-", linewidth=2, markersize=8, label="medido")
     plt.plot(strong_par["workers"], strong_par["workers"], "k--", alpha=0.5, label="ideal (linear)")
     plt.xlabel("Trabalhadores")
@@ -122,7 +122,7 @@ def main():
     plt.grid(True, alpha=0.3)
     save_plot("strong_speedup.png")
 
-    plt.figure(figsize=(6, 4.5))
+    plt.figure(figsize=(7, 3))
     plt.plot(strong_par["workers"], strong_par["efficiency"], "o-", linewidth=2, markersize=8)
     plt.axhline(1.0, color="k", linestyle="--", alpha=0.5, label="ideal")
     plt.xlabel("Trabalhadores")
@@ -133,7 +133,17 @@ def main():
     plt.grid(True, alpha=0.3)
     save_plot("strong_efficiency.png")
 
-    plt.figure(figsize=(6, 4.5))
+    plt.figure(figsize=(7, 3))
+    plt.plot(weak["workers"], weak["speedup"], "o-", linewidth=2, markersize=8, label="medido")
+    plt.plot(weak["workers"], weak["workers"], "k--", alpha=0.5, label="ideal (linear)")
+    plt.xlabel("Trabalhadores")
+    plt.ylabel("Speedup")
+    plt.title("Speedup fraco")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    save_plot("weak_speedup.png")
+
+    plt.figure(figsize=(7, 3))
     plt.plot(weak["workers"], weak["efficiency"], "o-", linewidth=2, markersize=8)
     plt.axhline(1.0, color="k", linestyle="--", alpha=0.5, label="ideal")
     plt.xlabel("Trabalhadores")
@@ -144,7 +154,7 @@ def main():
     plt.grid(True, alpha=0.3)
     save_plot("weak_efficiency.png")
 
-    plt.figure(figsize=(6, 4.5))
+    plt.figure(figsize=(7, 3))
     plt.plot(strong_par["workers"], strong_par["imbalance_pct"], "o-", linewidth=2, markersize=8, label="forte")
     plt.plot(weak["workers"], weak["imbalance_pct"], "s-", linewidth=2, markersize=8, label="fraca")
     plt.xlabel("Trabalhadores")
