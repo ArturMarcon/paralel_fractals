@@ -1,0 +1,175 @@
+% Compile com:  pdflatex relatorio.tex
+% Ou faça upload do diretório trabalho_2/ no Overleaf.
+%
+% Estrutura esperada pelo enunciado:
+%   Página 1: análise (coluna dupla)
+%   Página 2: tabelas e gráficos
+%   Página 3+: código-fonte
+
+\documentclass[twocolumn,a4paper,10pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[margin=1.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+
+\setlength{\columnsep}{0.6cm}
+
+% Compact section spacing (saves vertical space on page 1).
+\titlespacing*{\section}{0pt}{0.6em}{0.3em}
+\titlespacing*{\paragraph}{0pt}{0.3em}{0.5em}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!70!black},
+  breaklines=true,
+  language=C,
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{gray!40},
+  tabsize=2,
+  captionpos=b
+}
+
+\begin{document}
+
+% Custom title block (replaces \maketitle so we can control spacing precisely).
+\twocolumn[\begin{center}
+  \vspace{-2em}
+  {\normalsize Pontifícia Universidade Católica do Rio Grande do Sul - Programação Paralela - Prof Cesar De Rose}\par
+  \vspace{0.4em}
+  {\LARGE\bfseries Paralelização de Aplicação com a Biblioteca MPI}\par
+  \vspace{0.5em}
+  {\large Artur Marcon, Giovana Raupp e Vitoria Gonzalez}\par
+  \vspace{1.5em}
+\end{center}]
+
+% =====================================================================
+\section{Introdução}
+% =====================================================================
+Este trabalho implementa uma versão paralela do problema de geração de uma animação de \emph{zoom} (dive) no conjunto de Julia, utilizando MPI no modelo coordenador/trabalhador. A unidade de trabalho é um \emph{frame} completo de $1920{\times}1080$ pixels com $\mathrm{MAX\_ITER}=2000$ iterações, e o saco de trabalho contém $N$ frames com fator de zoom progressivo $0{,}94^{i}$. Esse fator torna o custo computacional heterogêneo entre os frames (frames mais profundos atingem $\mathrm{MAX\_ITER}$ com mais frequência), o que justifica o uso de uma fila dinâmica para balanceamento de carga.
+
+% =====================================================================
+\section{Metodologia}
+% =====================================================================
+\paragraph{Comunicação MPI.} A iniciativa é dos trabalhadores, conforme o enunciado: cada worker envia um \texttt{TAG\_READY} inicial ao mestre indicando que está disponível, e o mestre é puramente reativo (sem bootstrap). No loop principal o mestre usa \texttt{MPI\_Probe} para inspecionar a tag/origem da próxima mensagem antes de chamar \texttt{MPI\_Recv}, necessário porque ele recebe dois tipos de mensagens de tamanhos muito diferentes: 4 bytes para um \texttt{TAG\_READY} e $\sim$6\,MB para o buffer RGB de um resultado. Após processar a mensagem, o mestre responde com \texttt{TAG\_WORK} (próximo \emph{frame id}) ou \texttt{TAG\_DIE} (fim do trabalho). O resultado de cada frame carrega o próprio \emph{frame id} como tag, dispensando mensagem extra de metadados e funcionando implicitamente como o próximo pedido daquele worker. As estatísticas por trabalhador (frames processados e tempo de cálculo) são coletadas após o loop principal via \texttt{MPI\_Gather}, isolando-as do tráfego do despachante. Uma variante \emph{master-driven} (sem \texttt{TAG\_READY}, com bootstrap no mestre) foi também medida e apresentou diferenças $<2\%$ em todas as configurações, confirmando que o custo da mensagem adicional é desprezível.
+
+\paragraph{Saco de trabalho.} O modelo canônico mantém uma matriz de vetores em memória que serve simultaneamente como buffer de envio e de recebimento, com \texttt{MPI\_Probe + MPI\_Recv} direto na posição final. Não usamos essa estrutura literalmente: o mestre não envia vetores de entrada (apenas o \emph{frame id} de 4 bytes), e a saída natural de cada frame é um arquivo PPM em disco. A ordem original do saco é preservada pelo nome do arquivo (\texttt{frame\_NNNN.ppm}), evitando os $\sim$1{,}86\,GB de RAM que uma matriz materializada de 300 frames a $1920{\times}1080$ exigiria no rank 0.
+
+\paragraph{Ambiente experimental.} Cluster \textit{atlantica} (LAD/PUCRS), 2 nós exclusivos alocados via \texttt{salloc --exclusive -N 2} dentro da mesma sessão (Ubuntu 20.04, gcc 9.4.0, OpenMPI 4.1.1; cada nó com 8 cores físicos / 16 threads HT). Tanto o baseline sequencial quanto a versão paralela executam em nós de cálculo da mesma alocação (o sequencial via \texttt{srun -n 1 -N 1}, garantindo hardware idêntico). Ambos compilados com \texttt{-O3 -Wall}. Cada configuração executada \textbf{3 vezes}; reporta-se a mediana. I/O de PPM desligado durante as medições para isolar custo de cálculo.
+
+\paragraph{Métricas.} Sendo $W$ o número de \emph{trabalhadores} ($W = np - 1$):
+\begin{align*}
+S_f(W) &= \frac{T_{\text{seq}}}{T(W)}, &
+E_f(W) &= \frac{S_f(W)}{W} \\
+S_w(W) &= \frac{T(W{=}1)}{T(W)}, &
+E_w(W) &= S_w(W)
+\end{align*}
+Para a escalabilidade fraca, fixa-se $10$ frames por trabalhador, conforme orientação do enunciado de \emph{contar apenas o trabalhador} para o cálculo. O \emph{desbalanceamento} é definido como $(\max - \min)/\max$ entre os tempos de cálculo dos trabalhadores.
+
+% =====================================================================
+\section{Resultados}
+% =====================================================================
+A Tabela~\ref{tab:strong} apresenta a escalabilidade forte (60 frames) e a Tabela~\ref{tab:weak} a fraca. Os gráficos correspondentes estão na Figura~\ref{fig:plots}.
+
+\paragraph{Escalabilidade forte.} O speedup cresce de $1{,}0$ ($W{=}1$, esperado) até $21{,}4\times$ ($W{=}31$). A eficiência mantém-se acima de $88\%$ até $W{=}15$ (eficiência $0{,}88$ em $W{=}15$, $0{,}92$ em $W{=}7$, $0{,}98$ em $W{=}3$) e cai para $69\%$ em $W{=}31$. Os fatores limitantes observados foram: (i) o \emph{rank 0} é serializado, recebendo um buffer RGB de $\sim$6\,MB por frame, processando o resultado, e respondendo com o próximo \emph{frame id}; (ii) com apenas $60$ frames distribuídos entre $31$ trabalhadores, a granularidade torna-se grosseira: em média $1{,}9$ frames por worker, ou seja, parte processa 2 frames e o restante apenas 1, gerando o salto de desbalanceamento de $15\%$ ($W{=}15$) para $54\%$ ($W{=}31$).
+
+\paragraph{Escalabilidade fraca.} A eficiência fraca cai de $1{,}000$ ($W{=}1$) para $0{,}24$ ($W{=}31$). Essa degradação não é apenas overhead: ao escalar o número total de frames junto com o número de trabalhadores ($N = 10 W$), aumenta-se também a \emph{média} do índice de cada frame --- e portanto a profundidade do zoom --- de modo que a carga média por frame cresce em vez de permanecer constante. Em $W{=}31$ os frames atingem o índice $309$ (zoom $\approx 0{,}94^{309} \approx 6{\times}10^{-9}$), com tempo por frame significativamente superior ao da configuração baseline ($W{=}1$, frames $0$ a $9$).
+
+\paragraph{Balanceamento de carga.} O modelo \emph{coordenador/trabalhador}, com iniciativa dos trabalhadores, entrega balanceamento dinâmico naturalmente: workers que terminam antes recebem mais trabalho. O desbalanceamento medido cresce com $W$ ($2\%$ em $W{=}3$, $12\%$ em $W{=}7$, $15\%$ em $W{=}15$, $54\%$ em $W{=}31$), mas o salto em $W{=}31$ é \emph{estrutural} (poucos frames por worker) e não um problema do algoritmo. Aumentar $N$ recuperaria o balanceamento.
+
+% =====================================================================
+\section{Conclusão}
+% =====================================================================
+A versão MPI mestre/trabalhador atinge speedup forte de $21{,}4\times$ com $31$ trabalhadores (eficiência $69\%$), validando o modelo para a carga heterogênea da animação. Até $W{=}15$ a eficiência permanece $\geq 88\%$. As principais limitações observadas são: (a) serialização do rank 0 (recebe $\sim$6\,MB por frame), e (b) granularidade insuficiente em $W{=}31$ com apenas 60 frames. Trabalhos futuros incluem escrita de PPM delegada ao próprio trabalhador (reduz tráfego) e sobreposição de comunicação/computação com \texttt{MPI\_Isend}/\texttt{MPI\_Irecv}.
+
+% =====================================================================
+% Anexos: voltam a uma coluna
+% =====================================================================
+\onecolumn
+\section*{Anexo A --- Tabelas e Gráficos}
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{minipage}[t]{0.48\linewidth}
+    \centering
+    \caption{Escalabilidade forte (60 frames, mediana de 3 reps). $T_{\text{seq}} = 163{,}87$\,s.}
+    \label{tab:strong}
+    \begin{tabular}{rrrrrr}
+      \toprule
+      $np$ & $W$ & $T$ (s) & $S$ & $E$ & Desbal.\,(\%) \\
+      \midrule
+      2  & 1  & 164{,}96 & 0{,}993 & 0{,}993 & 0{,}00  \\
+      4  & 3  & 55{,}70  & 2{,}942 & 0{,}981 & 2{,}48  \\
+      8  & 7  & 25{,}46  & 6{,}437 & 0{,}920 & 12{,}31 \\
+      16 & 15 & 12{,}40  & 13{,}220 & 0{,}881 & 15{,}25 \\
+      32 & 31 & 7{,}65   & 21{,}413 & 0{,}691 & 54{,}29 \\
+      \bottomrule
+    \end{tabular}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.48\linewidth}
+    \centering
+    \caption{Escalabilidade fraca (10 frames/worker, mediana de 3 reps). $T(W{=}1) = 17{,}97$\,s.}
+    \label{tab:weak}
+    \begin{tabular}{rrrrrr}
+      \toprule
+      $np$ & $W$ & frames & $T$ (s) & $S$ & $E$ \\
+      \midrule
+      2  & 1  & 10  & 17{,}97 & 1{,}000 & 1{,}000 \\
+      4  & 3  & 30  & 24{,}08 & 0{,}746 & 0{,}746 \\
+      8  & 7  & 70  & 30{,}21 & 0{,}595 & 0{,}595 \\
+      16 & 15 & 150 & 41{,}13 & 0{,}437 & 0{,}437 \\
+      32 & 31 & 310 & 73{,}71 & 0{,}244 & 0{,}244 \\
+      \bottomrule
+    \end{tabular}
+  \end{minipage}
+\end{table}
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{plots/strong_speedup.png}
+    \caption{Speedup forte}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{plots/strong_efficiency.png}
+    \caption{Eficiência forte}
+  \end{subfigure}\\[0.6em]
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{plots/weak_efficiency.png}
+    \caption{Eficiência fraca}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.48\linewidth}
+    \includegraphics[width=\linewidth]{plots/imbalance.png}
+    \caption{Desbalanceamento}
+  \end{subfigure}
+  \caption{Curvas de escalabilidade e balanceamento de carga.}
+  \label{fig:plots}
+\end{figure}
+
+\clearpage
+\section*{Anexo B --- Código-fonte}
+
+\subsection*{\texttt{julia\_dive.c} --- versão paralela MPI (mestre/trabalhador)}
+\lstinputlisting[language=C]{julia_dive.c}
+
+\subsection*{\texttt{julia\_dive\_seq.c} --- versão sequencial (baseline)}
+\lstinputlisting[language=C]{julia_dive_seq.c}
+
+\subsection*{\texttt{run\_experiments.sh} --- script de experimentos}
+\lstinputlisting[language=bash]{run_experiments.sh}
+
+\end{document}

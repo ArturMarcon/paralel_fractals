@@ -1,3 +1,16 @@
 **/frames/
 **/julia_dive
 **/julia_dive_seq
+*.mp4
+*.ppm
+.venv/
+**/results_lad_v1.csv
+__pycache__/
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk

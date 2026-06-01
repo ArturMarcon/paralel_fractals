@@ -137,6 +137,11 @@ int main(int argc, char *argv[]) {
 
     printf("[Seq] total=%.4fs  compute=%.4fs  io=%.4fs\n", t_total, t_compute, t_io);
 
+    // Machine-readable summary line (consumed by run_experiments.sh):
+    // CSV,kind,np,workers,total_frames,total_s,io_s,compute_max_s,compute_min_s,imbalance_pct
+    printf("CSV,seq,1,0,%d,%.6f,%.6f,%.6f,%.6f,0.0000\n",
+           total_frames, t_total, t_io, t_compute, t_compute);
+
     free(buffer);
     return 0;
 }
