@@ -65,9 +65,9 @@ Este trabalho implementa uma versão paralela do problema de geração de uma an
 % =====================================================================
 \section{Metodologia}
 % =====================================================================
-\paragraph{Modelagem paralela.} A \emph{unidade de trabalho} é um frame de $1920{\times}1080$ ($\sim$6\,MB de buffer RGB), despachado dinamicamente quando algum worker o solicita. O design respondeu a três questões: o custo é fortemente heterogêneo (zoom profundo atinge $\mathrm{MAX\_ITER}$ com mais frequência, então divisão estática causaria grande desbalanceamento --- usamos \textbf{fila dinâmica com iniciativa do worker}); manter os 300 frames como matriz residente custaria $\sim$1{,}86\,GB no rank 0, então a ordem é preservada implicitamente pelo nome do arquivo (\texttt{frame\_NNNN.ppm}), gravado quando cada resultado chega; o canal worker$\rightarrow$mestre carrega mensagens de tamanhos distintos ($\sim$4\,B vs $\sim$6\,MB), exigindo \texttt{MPI\_Probe} (linha 156) antes do \texttt{MPI\_Recv} apropriado e tags de resultado deslocadas (\texttt{TAG\_RESULT\_BASE + frame\_id}, linha 15) para evitar colisão com \texttt{TAG\_REQUEST = 0}.
+\paragraph{Modelagem paralela.} A \emph{unidade de trabalho} é um frame de $1920{\times}1080$ ($\sim$6\,MB de buffer RGB), despachado dinamicamente quando algum worker o solicita. O design respondeu a três questões: o custo é fortemente heterogêneo (zoom profundo atinge $\mathrm{MAX\_ITER}$ com mais frequência, então divisão estática causaria grande desbalanceamento. Usamos \textbf{fila dinâmica com iniciativa do worker}); manter os 300 frames como matriz residente custaria $\sim$1{,}86\,GB no rank 0, então a ordem é preservada implicitamente pelo nome do arquivo (\texttt{frame\_NNNN.ppm}), gravado quando cada resultado chega; o canal worker$\rightarrow$mestre carrega mensagens de tamanhos distintos ($\sim$4\,B vs $\sim$6\,MB), exigindo \texttt{MPI\_Probe} (linha 141) antes do \texttt{MPI\_Recv} apropriado e tags de resultado deslocadas (\texttt{TAG\_RESULT\_BASE + frame\_id}, linha 14) para evitar colisão com \texttt{TAG\_REQUEST = 0}.
 
-\paragraph{Protocolo de comunicação.} A iniciativa é dos trabalhadores: cada unidade é precedida por \texttt{TAG\_REQUEST} explícito (linha 240). O mestre é puramente reativo e responde com \texttt{TAG\_WORK} ou \texttt{TAG\_DIE} quando o saco esvazia (linhas 161--174); ao receber um resultado apenas grava e segue --- a próxima dispatch só ocorre quando o worker pedir de novo. \texttt{MPI\_Barrier} (linha 138) sincroniza os ranks antes de \texttt{MPI\_Wtime}. Estatísticas por trabalhador são coletadas via \texttt{MPI\_Gather} (linha 197) em canal isolado do dispatch.
+\paragraph{Protocolo de comunicação.} A iniciativa é dos trabalhadores: cada unidade é precedida por \texttt{TAG\_REQUEST} explícito (linha 216). O mestre é puramente reativo e responde com \texttt{TAG\_WORK} ou \texttt{TAG\_DIE} quando o saco esvazia (linhas 152--156). Ao receber um resultado apenas grava e segue. A próxima dispatch só ocorre quando o worker pedir de novo. \texttt{MPI\_Barrier} (linha 130) sincroniza os ranks antes de \texttt{MPI\_Wtime}. Estatísticas por trabalhador são coletadas via \texttt{MPI\_Gather} (linha 179) em canal isolado do dispatch.
 
 \paragraph{Ambiente experimental.} Cluster \textit{atlantica} (LAD/PUCRS), 2 nós exclusivos alocados via \texttt{salloc --exclusive -N 2} dentro da mesma sessão (Ubuntu 20.04, gcc 9.4.0, OpenMPI 4.1.1; cada nó com 8 cores físicos / 16 threads HT). Tanto o baseline sequencial quanto a versão paralela executam em nós de cálculo da mesma alocação (o sequencial via \texttt{srun -n 1 -N 1}, garantindo hardware idêntico). Ambos compilados com \texttt{-O3 -Wall}. Cada configuração executada \textbf{3 vezes}; reporta-se a mediana. I/O de PPM desligado durante as medições para isolar custo de cálculo.
 
@@ -78,7 +78,7 @@ E_f(W) &= \frac{S_f(W)}{W} \\
 S_w(W) &= \frac{T_{\text{seq}}(N)}{T_{\text{par}}(W,N)}, &
 E_w(W) &= \frac{S_w(W)}{W}
 \end{align*}
-Para a escalabilidade fraca, fixa-se $10$ frames por trabalhador ($N = 10\,W$). $T_{\text{seq}}$ é medido para cada $N$ no mesmo nó de cálculo da configuração paralela. O denominador da eficiência usa $W$ (\emph{contando apenas o trabalhador}), conforme orientação do enunciado. O \emph{desbalanceamento} é $(\max - \min)/\max$ entre os tempos de cálculo dos trabalhadores.
+Para a escalabilidade fraca, fixa-se $10$ frames por trabalhador ($N = 10\,W$). $T_{\text{seq}}$ é medido para cada $N$ no mesmo nó de cálculo da configuração paralela. O denominador da eficiência usa $W$ (\emph{contando apenas o trabalhador}). O \emph{desbalanceamento} é $(\max - \min)/\max$ entre os tempos de cálculo dos trabalhadores.
 
 % =====================================================================
 \section{Resultados}
@@ -94,7 +94,7 @@ A Tabela~\ref{tab:strong} apresenta a escalabilidade forte (60 frames) e a Tabel
 % =====================================================================
 \section{Conclusão}
 % =====================================================================
-A versão MPI mestre/trabalhador (\emph{pure pull}) atinge speedup forte de $20{,}3\times$ ($E=0{,}66$) e fraca de $23{,}3\times$ ($E=0{,}75$) com $31$ trabalhadores, validando o modelo para carga heterogênea. A escalabilidade fraca supera a forte porque $N$ cresce com $W$, amortizando o custo fixo de comunicação. As principais limitações observadas são: (a) serialização do rank 0 (recebe $\sim$6\,MB por frame), e (b) granularidade insuficiente em $W{=}31$ na escalabilidade forte (60 frames / 31 workers $\approx$ 1{,}9). Trabalhos futuros incluem escrita de PPM delegada ao próprio trabalhador (reduz tráfego) e sobreposição de comunicação/computação com \texttt{MPI\_Isend}/\texttt{MPI\_Irecv}.
+A versão MPI mestre/trabalhador atinge speedup forte de $20{,}3\times$ ($E=0{,}66$) e fraca de $23{,}3\times$ ($E=0{,}75$) com $31$ trabalhadores, validando o modelo para carga heterogênea. A escalabilidade fraca supera a forte porque $N$ cresce com $W$, amortizando o custo fixo de comunicação. As principais limitações observadas são: (a) serialização do rank 0 (recebe $\sim$6\,MB por frame), e (b) granularidade insuficiente em $W{=}31$ na escalabilidade forte (60 frames / 31 workers $\approx$ 1{,}9). Trabalhos futuros incluem escrita de PPM delegada ao próprio trabalhador (reduz tráfego) e sobreposição de comunicação/computação com \texttt{MPI\_Isend}/\texttt{MPI\_Irecv}.
 
 % =====================================================================
 % Anexos: voltam a uma coluna
@@ -105,9 +105,10 @@ A versão MPI mestre/trabalhador (\emph{pure pull}) atinge speedup forte de $20{
 \begin{table}[h]
   \centering
   \small
-  \begin{minipage}[t]{0.50\linewidth}
+  \begin{minipage}[t]{0.46\linewidth}
     \centering
-    \caption{Escalabilidade forte (60 frames, mediana de 3 reps). $T_{\text{seq}} = 163{,}91$\,s.}
+    \caption{Escalabilidade forte (60 frames, mediana 
+    de 3 reps). $T_{\text{seq}} = 163{,}91$\,s.}
     \label{tab:strong}
     \begin{tabular}{rrrrrr}
       \toprule
