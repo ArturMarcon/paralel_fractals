@@ -55,13 +55,29 @@ def main():
     strong_par["efficiency"] = strong_par["speedup"] / strong_par["workers"]
 
     # ---------------- Weak scaling ----------------
-    weak = agg[agg["experiment"] == "weak"].sort_values("workers").copy()
-    t1_row = weak[weak["workers"] == 1]
-    if t1_row.empty:
-        sys.exit("No 1-worker row found in weak experiment.")
-    t1 = float(t1_row["total_s"].iloc[0])
-    weak["speedup"] = t1 / weak["total_s"]
-    weak["efficiency"] = weak["speedup"]  # weak efficiency = speedup, ideal = 1
+    # Speedup uses T_seq measured for the SAME workload (joined by total_frames),
+    # not T(W=1). This is the correct weak metric when work-per-worker is fixed
+    # but per-frame cost grows with frame_id (Julia zoom). Falls back to the
+    # T(W=1)/T(W) metric if no matching seq row exists.
+    weak_all = agg[agg["experiment"] == "weak"].copy()
+    weak = weak_all[weak_all["kind"] == "par"].sort_values("workers").copy()
+    seq_map = (
+        weak_all[weak_all["kind"] == "seq"]
+        .set_index("total_frames")["total_s"]
+        .to_dict()
+    )
+    if seq_map:
+        weak["t_seq"] = weak["total_frames"].map(seq_map)
+        weak["speedup"] = weak["t_seq"] / weak["total_s"]
+        weak["efficiency"] = weak["speedup"] / weak["workers"].clip(lower=1)
+    else:
+        t1_row = weak[weak["workers"] == 1]
+        if t1_row.empty:
+            sys.exit("No 1-worker row found in weak experiment.")
+        t1 = float(t1_row["total_s"].iloc[0])
+        weak["t_seq"] = float("nan")
+        weak["speedup"] = t1 / weak["total_s"]
+        weak["efficiency"] = weak["speedup"]
 
     # ---------------- Tables ----------------
     print(f"Sequential baseline: T_seq = {t_seq:.4f}s\n")
@@ -77,13 +93,13 @@ def main():
         )
 
     print(f"\n### Weak scaling")
-    print(f"Baseline: T(1 worker, {int(weak['total_frames'].iloc[0])} frames) = {t1:.4f}s\n")
-    print("| np | workers | frames | T(s) | Speedup | Eficiência | Imbalance% |")
-    print("|----|---------|--------|------|---------|------------|------------|")
+    print("| np | workers | frames | T_seq (s) | T_par (s) | Speedup | Eficiência | Imbalance% |")
+    print("|----|---------|--------|-----------|-----------|---------|------------|------------|")
     for _, r in weak.iterrows():
+        t_seq_str = f"{r['t_seq']:.4f}" if r["t_seq"] == r["t_seq"] else "—"
         print(
             f"| {int(r['np'])} | {int(r['workers'])} | {int(r['total_frames'])} | "
-            f"{r['total_s']:.4f} | {r['speedup']:.3f} | {r['efficiency']:.3f} | "
+            f"{t_seq_str} | {r['total_s']:.4f} | {r['speedup']:.3f} | {r['efficiency']:.3f} | "
             f"{r['imbalance_pct']:.2f} |"
         )
 
