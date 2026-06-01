@@ -9,13 +9,12 @@
 #define DEFAULT_TOTAL_FRAMES 300
 
 // MPI Message Tags
-#define TAG_WORK  1     // master -> worker: here's a frame_id to compute
-#define TAG_DIE   2     // master -> worker: no more work, terminate
-#define TAG_READY 99999 // worker -> master: initial "I want work" request.
-                        // Result messages reuse the frame_id as their tag, so
-                        // TAG_READY must be > any valid frame_id to avoid
-                        // collision (frame_id=3 vs TAG_READY=3 → MPI_Probe
-                        // can't tell them apart and Recv truncates).
+#define TAG_REQUEST     0   // worker -> master: "I want work" (sent before EVERY work item)
+#define TAG_WORK        1   // master -> worker: here's a frame_id to compute
+#define TAG_DIE         2   // master -> worker: no more work, terminate
+#define TAG_RESULT_BASE 3   // worker -> master: result tag = TAG_RESULT_BASE + frame_id.
+                            // Shifting result tags avoids collision with the small reserved
+                            // tags above (frame_id=0 would otherwise collide with TAG_REQUEST).
 
 // Julia set constant configuration
 const double C_REAL = -0.7;
@@ -133,32 +132,48 @@ int main(int argc, char *argv[]) {
         // ================= MASTER RANK =================
         printf("[Master] Rendering %d frames into (%f, %f), workers=%d, save_files=%d\n",
                total_frames, target_real, target_imag, size - 1, save_files);
+
+        // Barrier before timing so all ranks start "together" -- avoids
+        // accidentally measuring worker startup/scatter overhead.
+        MPI_Barrier(MPI_COMM_WORLD);
         double start_time = MPI_Wtime();
         double io_time = 0.0;
 
         int next_frame = 0;
+        int frames_saved = 0;
         int active_workers = size - 1;
 
-        // Purely reactive: no bootstrap. The initiative is on the workers --
-        // they either ping us with TAG_READY (first contact) or send back a
-        // completed frame (tag = frame_id, acting as an implicit next request).
-        // MPI_Probe lets us peek at the tag/source so we know which kind of
-        // message it is BEFORE issuing the matching MPI_Recv (small int vs
-        // 6 MB buffer).
+        // Pure pull model: every work item is preceded by an explicit
+        // TAG_REQUEST from the worker. The master is purely reactive --
+        // when it receives a REQUEST it dispatches the next frame (or DIE);
+        // when it receives a RESULT it just saves it. RESULT messages do
+        // NOT trigger a new WORK -- the worker will send another REQUEST
+        // when it's ready. Loop ends when all frames are saved and all
+        // workers have received TAG_DIE.
         unsigned char *recv_buffer = (unsigned char *)malloc(frame_buffer_size);
-        while (active_workers > 0) {
+        while (frames_saved < total_frames || active_workers > 0) {
             MPI_Status status;
             MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             int worker_id = status.MPI_SOURCE;
             int tag = status.MPI_TAG;
 
-            if (tag == TAG_READY) {
+            if (tag == TAG_REQUEST) {
                 int dummy;
-                MPI_Recv(&dummy, 1, MPI_INT, worker_id, TAG_READY,
+                MPI_Recv(&dummy, 1, MPI_INT, worker_id, TAG_REQUEST,
                          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                if (next_frame < total_frames) {
+                    MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_WORK, MPI_COMM_WORLD);
+                    next_frame++;
+                } else {
+                    int term = -1;
+                    MPI_Send(&term, 1, MPI_INT, worker_id, TAG_DIE, MPI_COMM_WORLD);
+                    active_workers--;
+                }
             } else {
-                int completed_frame_id = tag;
+                // Result message: tag encodes (TAG_RESULT_BASE + frame_id).
+                int completed_frame_id = tag - TAG_RESULT_BASE;
                 MPI_Recv(recv_buffer, (int)frame_buffer_size, MPI_BYTE,
                          worker_id, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 if (save_files) {
@@ -166,14 +181,7 @@ int main(int argc, char *argv[]) {
                     save_ppm(completed_frame_id, recv_buffer);
                     io_time += MPI_Wtime() - io0;
                 }
-            }
-
-            if (next_frame < total_frames) {
-                MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_WORK, MPI_COMM_WORLD);
-                next_frame++;
-            } else {
-                MPI_Send(&next_frame, 1, MPI_INT, worker_id, TAG_DIE, MPI_COMM_WORLD);
-                active_workers--;
+                frames_saved++;
             }
         }
 
@@ -220,17 +228,19 @@ int main(int argc, char *argv[]) {
         unsigned char *local_buffer = (unsigned char *)malloc(frame_buffer_size);
         int frames_processed = 0;
         double compute_time = 0.0;
+        int request_payload = rank;  // request body is irrelevant; tag carries the meaning
 
-        // Worker takes the initiative (per enunciado): announce readiness
-        // before any computation. After this, sending a result implicitly
-        // serves as the next "ready" signal.
-        int ready_payload = rank;
-        MPI_Send(&ready_payload, 1, MPI_INT, 0, TAG_READY, MPI_COMM_WORLD);
+        // Match the master's barrier so timing starts simultaneously.
+        MPI_Barrier(MPI_COMM_WORLD);
 
+        // Pure pull model: explicit TAG_REQUEST before EVERY work item,
+        // per the enunciado's requirement that "a iniciativa deve ser dos
+        // trabalhadores [...] eles que pedem trabalho ao coordenador".
         while (1) {
+            MPI_Send(&request_payload, 1, MPI_INT, 0, TAG_REQUEST, MPI_COMM_WORLD);
+
             int frame_to_build;
             MPI_Status status;
-
             MPI_Recv(&frame_to_build, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             if (status.MPI_TAG == TAG_DIE) {
@@ -242,7 +252,8 @@ int main(int argc, char *argv[]) {
             compute_time += MPI_Wtime() - c0;
             frames_processed++;
 
-            MPI_Send(local_buffer, (int)frame_buffer_size, MPI_BYTE, 0, frame_to_build, MPI_COMM_WORLD);
+            MPI_Send(local_buffer, (int)frame_buffer_size, MPI_BYTE, 0,
+                     TAG_RESULT_BASE + frame_to_build, MPI_COMM_WORLD);
         }
 
         double local_stats[2] = { (double)frames_processed, compute_time };

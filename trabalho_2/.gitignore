@@ -5,6 +5,8 @@
 *.ppm
 .venv/
 **/results_lad_v1.csv
+**/results_lad_v2.csv
+**/.DS_Store
 __pycache__/
 # LaTeX build artifacts
 *.aux
