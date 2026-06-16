@@ -1,0 +1,68 @@
+inicio=2026-06-16T18:21:16-03:00 tamanho=100000 delta=10000 entrada=reverse repeticoes=3
+rep=1 tipo=sequencial
+programa=sequencial tamanho=100000 entrada=0 tempo=15.575509 ordenado=1
+rep=2 tipo=sequencial
+programa=sequencial tamanho=100000 entrada=0 tempo=15.340915 ordenado=1
+rep=3 tipo=sequencial
+programa=sequencial tamanho=100000 entrada=0 tempo=15.788121 ordenado=1
+rep=1 tipo=mpi_arvore np=1
+programa=mpi_arvore tamanho=100000 delta=10000 processos=1 entrada=0 tempo=9.994862 ordenado=1 tempo_min=9.994859 tempo_max=9.994859 tempo_medio=9.994859 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=2 tipo=mpi_arvore np=1
+programa=mpi_arvore tamanho=100000 delta=10000 processos=1 entrada=0 tempo=10.038883 ordenado=1 tempo_min=10.038880 tempo_max=10.038880 tempo_medio=10.038880 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=3 tipo=mpi_arvore np=1
+programa=mpi_arvore tamanho=100000 delta=10000 processos=1 entrada=0 tempo=10.019962 ordenado=1 tempo_min=10.019959 tempo_max=10.019959 tempo_medio=10.019959 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=1 tipo=mpi_arvore np=3
+programa=mpi_arvore tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.471275 ordenado=1 tempo_min=0.000336 tempo_max=2.470418 tempo_medio=1.645595 desbalanceamento=0.999864 segmentos=2 processos_ativos=3
+rep=2 tipo=mpi_arvore np=3
+programa=mpi_arvore tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.482538 ordenado=1 tempo_min=0.000344 tempo_max=2.481719 tempo_medio=1.651417 desbalanceamento=0.999861 segmentos=2 processos_ativos=3
+rep=3 tipo=mpi_arvore np=3
+programa=mpi_arvore tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.475644 ordenado=1 tempo_min=0.000340 tempo_max=2.474850 tempo_medio=1.647747 desbalanceamento=0.999863 segmentos=2 processos_ativos=3
+rep=1 tipo=mpi_arvore np=7
+programa=mpi_arvore tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.653478 ordenado=1 tempo_min=0.000170 tempo_max=0.652242 tempo_medio=0.368787 desbalanceamento=0.999739 segmentos=4 processos_ativos=7
+rep=2 tipo=mpi_arvore np=7
+programa=mpi_arvore tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.647221 ordenado=1 tempo_min=0.000176 tempo_max=0.645997 tempo_medio=0.368270 desbalanceamento=0.999728 segmentos=4 processos_ativos=7
+rep=3 tipo=mpi_arvore np=7
+programa=mpi_arvore tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.650626 ordenado=1 tempo_min=0.000173 tempo_max=0.649372 tempo_medio=0.368027 desbalanceamento=0.999733 segmentos=4 processos_ativos=7
+rep=1 tipo=mpi_arvore np=15
+programa=mpi_arvore tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.263169 ordenado=1 tempo_min=0.000126 tempo_max=0.261338 tempo_medio=0.129893 desbalanceamento=0.999516 segmentos=8 processos_ativos=15
+rep=2 tipo=mpi_arvore np=15
+programa=mpi_arvore tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.267180 ordenado=1 tempo_min=0.000123 tempo_max=0.265233 tempo_medio=0.130909 desbalanceamento=0.999535 segmentos=8 processos_ativos=15
+rep=3 tipo=mpi_arvore np=15
+programa=mpi_arvore tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.275233 ordenado=1 tempo_min=0.000123 tempo_max=0.261382 tempo_medio=0.137316 desbalanceamento=0.999530 segmentos=8 processos_ativos=15
+rep=1 tipo=mpi_arvore np=31
+programa=mpi_arvore tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.071286 ordenado=1 tempo_min=0.000054 tempo_max=0.065456 tempo_medio=0.032101 desbalanceamento=0.999178 segmentos=16 processos_ativos=31
+rep=2 tipo=mpi_arvore np=31
+programa=mpi_arvore tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.071377 ordenado=1 tempo_min=0.000053 tempo_max=0.065295 tempo_medio=0.031952 desbalanceamento=0.999195 segmentos=16 processos_ativos=31
+rep=3 tipo=mpi_arvore np=31
+programa=mpi_arvore tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.071349 ordenado=1 tempo_min=0.000055 tempo_max=0.065364 tempo_medio=0.031980 desbalanceamento=0.999163 segmentos=16 processos_ativos=31
+rep=1 tipo=mpi_balanceado np=1
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=1 entrada=0 tempo=10.028382 ordenado=1 tempo_min=10.028379 tempo_max=10.028379 tempo_medio=10.028379 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=2 tipo=mpi_balanceado np=1
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=1 entrada=0 tempo=10.039940 ordenado=1 tempo_min=10.039936 tempo_max=10.039936 tempo_medio=10.039936 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=3 tipo=mpi_balanceado np=1
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=1 entrada=0 tempo=10.025158 ordenado=1 tempo_min=10.025154 tempo_max=10.025154 tempo_medio=10.025154 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=1 tipo=mpi_balanceado np=3
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.467931 ordenado=1 tempo_min=0.609240 tempo_max=2.467162 tempo_medio=1.229717 desbalanceamento=0.753060 segmentos=3 processos_ativos=3
+rep=2 tipo=mpi_balanceado np=3
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.467695 ordenado=1 tempo_min=0.619354 tempo_max=2.466925 tempo_medio=1.235817 desbalanceamento=0.748937 segmentos=3 processos_ativos=3
+rep=3 tipo=mpi_balanceado np=3
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=3 entrada=0 tempo=2.471459 ordenado=1 tempo_min=0.608474 tempo_max=2.470693 tempo_medio=1.229776 desbalanceamento=0.753723 segmentos=3 processos_ativos=3
+rep=1 tipo=mpi_balanceado np=7
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.644553 ordenado=1 tempo_min=0.151212 tempo_max=0.643467 tempo_medio=0.228496 desbalanceamento=0.765005 segmentos=7 processos_ativos=7
+rep=2 tipo=mpi_balanceado np=7
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.650281 ordenado=1 tempo_min=0.151946 tempo_max=0.649291 tempo_medio=0.228026 desbalanceamento=0.765981 segmentos=7 processos_ativos=7
+rep=3 tipo=mpi_balanceado np=7
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=7 entrada=0 tempo=0.647399 ordenado=1 tempo_min=0.149681 tempo_max=0.646448 tempo_medio=0.227390 desbalanceamento=0.768457 segmentos=7 processos_ativos=7
+rep=1 tipo=mpi_balanceado np=15
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.263856 ordenado=1 tempo_min=0.035364 tempo_max=0.258638 tempo_medio=0.076038 desbalanceamento=0.863270 segmentos=15 processos_ativos=15
+rep=2 tipo=mpi_balanceado np=15
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.290559 ordenado=1 tempo_min=0.035135 tempo_max=0.257448 tempo_medio=0.074649 desbalanceamento=0.863524 segmentos=15 processos_ativos=15
+rep=3 tipo=mpi_balanceado np=15
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=15 entrada=0 tempo=0.262146 ordenado=1 tempo_min=0.037372 tempo_max=0.260585 tempo_medio=0.076627 desbalanceamento=0.856582 segmentos=15 processos_ativos=15
+rep=1 tipo=mpi_balanceado np=31
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.067114 ordenado=1 tempo_min=0.065319 tempo_max=0.066173 tempo_medio=0.065458 desbalanceamento=0.012899 segmentos=16 processos_ativos=16
+rep=2 tipo=mpi_balanceado np=31
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.067083 ordenado=1 tempo_min=0.065370 tempo_max=0.066234 tempo_medio=0.065502 desbalanceamento=0.013048 segmentos=16 processos_ativos=16
+rep=3 tipo=mpi_balanceado np=31
+programa=mpi_balanceado tamanho=100000 delta=10000 processos=31 entrada=0 tempo=0.066980 ordenado=1 tempo_min=0.065333 tempo_max=0.066214 tempo_medio=0.065457 desbalanceamento=0.013317 segmentos=16 processos_ativos=16
+fim=2026-06-16T18:23:36-03:00
