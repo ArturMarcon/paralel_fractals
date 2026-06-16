@@ -44,6 +44,7 @@ def main():
         times = [float(entry["tempo"]) for entry in entries]
         imbalances = [float(entry.get("desbalanceamento", "0")) for entry in entries]
         segments = [int(entry.get("segmentos", "0")) for entry in entries]
+        actives = [int(entry.get("processos_ativos", "0")) for entry in entries]
         par_time = median(times)
         speedup = seq_time / par_time
         efficiency = speedup / processes
@@ -56,12 +57,14 @@ def main():
             "eficiencia": f"{efficiency:.6f}",
             "desbalanceamento": f"{median(imbalances):.6f}",
             "segmentos": int(median(segments)),
+            "processos_ativos": int(median(actives)),
         })
 
     with open(sys.argv[2], "w", encoding="utf-8", newline="") as target:
         writer = csv.DictWriter(target, fieldnames=[
             "programa", "processos", "tempo_seq", "tempo_par",
-            "speedup", "eficiencia", "desbalanceamento", "segmentos"
+            "speedup", "eficiencia", "desbalanceamento", "segmentos",
+            "processos_ativos"
         ])
         writer.writeheader()
         writer.writerows(rows)
