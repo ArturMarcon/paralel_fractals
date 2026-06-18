@@ -4,6 +4,14 @@
 
 #include "common_sort.h"
 
+static double get_time(void)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+}
+
 int main(int argc, char **argv)
 {
     int tam = 10000;
@@ -28,9 +36,9 @@ int main(int argc, char **argv)
 
     init_vector(vetor, tam, input_mode);
 
-    inicio = (double)clock() / CLOCKS_PER_SEC;
-    bubble_sort(tam, vetor);
-    fim = (double)clock() / CLOCKS_PER_SEC;
+    inicio = get_time();
+    bs(tam, vetor);
+    fim = get_time();
 
     printf("programa=sequencial tamanho=%d entrada=%d tempo=%.6f ordenado=%d\n",
            tam, input_mode, fim - inicio, is_sorted(vetor, tam));

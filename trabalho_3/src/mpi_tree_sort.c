@@ -11,19 +11,19 @@
 static double tempo_ocupado_local = 0.0;
 static int segmentos_conquistados_local = 0;
 
-static void sort_fixed_tree(int rank, int nprocs, int *vetor, int tam, int delta)
+static void sort_fixed_tree(int rank, int nprocs, int *vetor, int tam)
 {
     int left = 2 * rank + 1;
     int right = 2 * rank + 2;
     int meio = tam / 2;
-    int *aux;
+    int *vetor_auxiliar;
     double t_compute;
     MPI_Status status;
 
-    /* Conquista: vetor pequeno (<= delta) ou sem filhos. Cronometra so o calculo. */
-    if (tam <= delta || left >= nprocs || right >= nprocs || tam < 2) {
+    /* Conquista quando nao existem filhos disponiveis na arvore de processos. */
+    if (left >= nprocs || right >= nprocs || tam < 2) {
         t_compute = MPI_Wtime();
-        bubble_sort(tam, vetor);
+        bs(tam, vetor);
         tempo_ocupado_local += MPI_Wtime() - t_compute;
         segmentos_conquistados_local++;
         return;
@@ -37,15 +37,14 @@ static void sort_fixed_tree(int rank, int nprocs, int *vetor, int tam, int delta
     MPI_Recv(vetor + meio, tam - meio, MPI_INT, right, TAG_WORK, MPI_COMM_WORLD, &status);
 
     /* Intercalacao tambem e carga real: cronometrada. */
-    aux = (int *)malloc((size_t)tam * sizeof(int));
-    die_if_null(aux, "auxiliar");
     t_compute = MPI_Wtime();
-    merge_sorted_halves(vetor, tam, aux);
+    vetor_auxiliar = interleaving(vetor, tam);
+    memcpy(vetor, vetor_auxiliar, (size_t)tam * sizeof(int));
     tempo_ocupado_local += MPI_Wtime() - t_compute;
-    free(aux);
+    free(vetor_auxiliar);
 }
 
-static void run_helper_fixed(int rank, int nprocs, int delta)
+static void run_helper_fixed(int rank, int nprocs)
 {
     MPI_Status status;
     int tam;
@@ -66,7 +65,7 @@ static void run_helper_fixed(int rank, int nprocs, int delta)
 
     /* O calculo ja e cronometrado dentro de sort_fixed_tree. */
     MPI_Recv(vetor, tam, MPI_INT, parent, TAG_WORK, MPI_COMM_WORLD, &status);
-    sort_fixed_tree(rank, nprocs, vetor, tam, delta);
+    sort_fixed_tree(rank, nprocs, vetor, tam);
     MPI_Send(vetor, tam, MPI_INT, parent, TAG_WORK, MPI_COMM_WORLD);
 
     MPI_Recv(NULL, 0, MPI_INT, 0, TAG_STOP, MPI_COMM_WORLD, &status);
@@ -78,7 +77,6 @@ int main(int argc, char **argv)
     int rank;
     int nprocs;
     int tam = 10000;
-    int delta = 1000;
     int input_mode = INPUT_REVERSE;
     int *vetor = NULL;
     double inicio = 0.0;
@@ -100,14 +98,11 @@ int main(int argc, char **argv)
         tam = atoi(argv[1]);
     }
     if (argc >= 3) {
-        delta = atoi(argv[2]);
+        input_mode = parse_input_mode(argv[2]);
     }
-    if (argc >= 4) {
-        input_mode = parse_input_mode(argv[3]);
-    }
-    if (tam <= 0 || delta <= 0) {
+    if (tam <= 0) {
         if (rank == 0) {
-            fprintf(stderr, "Uso: %s [tamanho] [delta] [reverse|random|almost]\n", argv[0]);
+            fprintf(stderr, "Uso: %s [tamanho] [reverse|random|almost]\n", argv[0]);
         }
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
@@ -119,7 +114,7 @@ int main(int argc, char **argv)
 
         MPI_Barrier(MPI_COMM_WORLD);
         inicio = MPI_Wtime();
-        sort_fixed_tree(rank, nprocs, vetor, tam, delta);
+        sort_fixed_tree(rank, nprocs, vetor, tam);
         fim = MPI_Wtime();
 
         /* Sinaliza o fim do trabalho aos demais processos. */
@@ -128,7 +123,7 @@ int main(int argc, char **argv)
         }
     } else {
         MPI_Barrier(MPI_COMM_WORLD);
-        run_helper_fixed(rank, nprocs, delta);
+        run_helper_fixed(rank, nprocs);
     }
 
     /* Balanceamento: processos ociosos entram no MIN com DBL_MAX para nao zerar
@@ -143,8 +138,8 @@ int main(int argc, char **argv)
     MPI_Reduce(&ativo_local, &ativos_soma, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        printf("programa=mpi_arvore tamanho=%d delta=%d processos=%d entrada=%d tempo=%.6f ordenado=%d tempo_min=%.6f tempo_max=%.6f tempo_medio=%.6f desbalanceamento=%.6f segmentos=%d processos_ativos=%d\n",
-               tam, delta, nprocs, input_mode, fim - inicio, is_sorted(vetor, tam),
+        printf("programa=mpi_arvore tamanho=%d processos=%d entrada=%d tempo=%.6f ordenado=%d tempo_min=%.6f tempo_max=%.6f tempo_medio=%.6f desbalanceamento=%.6f segmentos=%d processos_ativos=%d\n",
+               tam, nprocs, input_mode, fim - inicio, is_sorted(vetor, tam),
                tempo_minimo, tempo_maximo,
                ativos_soma > 0 ? tempo_soma / ativos_soma : 0.0,
                tempo_maximo > 0.0 ? (tempo_maximo - tempo_minimo) / tempo_maximo : 0.0,

@@ -23,7 +23,7 @@ static void die_if_null(const void *ptr, const char *name)
     }
 }
 
-static void bubble_sort(int n, int *vetor)
+static void bs(int n, int *vetor)
 {
     int c = 0;
     int trocou = 1;
@@ -43,30 +43,25 @@ static void bubble_sort(int n, int *vetor)
     }
 }
 
-static void MAYBE_UNUSED merge_sorted_halves(int *vetor, int tam, int *aux)
+static int *MAYBE_UNUSED interleaving(int vetor[], int tam)
 {
+    int *vetor_auxiliar;
     int i1 = 0;
     int i2 = tam / 2;
-    int meio = tam / 2;
     int i_aux = 0;
 
-    while (i1 < meio && i2 < tam) {
-        if (vetor[i1] <= vetor[i2]) {
-            aux[i_aux++] = vetor[i1++];
+    vetor_auxiliar = (int *)malloc(sizeof(int) * (size_t)tam);
+    die_if_null(vetor_auxiliar, "vetor_auxiliar");
+
+    for (i_aux = 0; i_aux < tam; i_aux++) {
+        if ((i1 < (tam / 2)) && ((i2 == tam) || (vetor[i1] <= vetor[i2]))) {
+            vetor_auxiliar[i_aux] = vetor[i1++];
         } else {
-            aux[i_aux++] = vetor[i2++];
+            vetor_auxiliar[i_aux] = vetor[i2++];
         }
     }
 
-    while (i1 < meio) {
-        aux[i_aux++] = vetor[i1++];
-    }
-
-    while (i2 < tam) {
-        aux[i_aux++] = vetor[i2++];
-    }
-
-    memcpy(vetor, aux, (size_t)tam * sizeof(int));
+    return vetor_auxiliar;
 }
 
 static void init_vector(int *vetor, int tam, int input_mode)

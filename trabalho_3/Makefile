@@ -1,5 +1,6 @@
-CC = mpicc
-CFLAGS = -O3 -Wall -Wextra -std=c99
+MPICC = mpicc
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99
 
 BIN_DIR = bin
 SRC_DIR = src
@@ -13,10 +14,10 @@ $(BIN_DIR)/sequential_bs: $(SRC_DIR)/sequential_bs.c $(SRC_DIR)/common_sort.h | 
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BIN_DIR)/mpi_tree_sort: $(SRC_DIR)/mpi_tree_sort.c $(SRC_DIR)/common_sort.h | $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(MPICC) $(CFLAGS) $< -o $@
 
 $(BIN_DIR)/mpi_balanced_sort: $(SRC_DIR)/mpi_balanced_sort.c $(SRC_DIR)/common_sort.h | $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(MPICC) $(CFLAGS) $< -o $@
 
 clean:
 	rm -rf $(BIN_DIR)
