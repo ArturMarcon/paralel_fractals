@@ -1,0 +1,6 @@
+inicio=2026-06-18T15:14:32-03:00 tamanho=1000000 entrada=reverse repeticoes=1 np=1
+rep=1 tipo=mpi_arvore np=1
+programa=mpi_arvore tamanho=1000000 processos=1 entrada=0 tempo=4493.412591 ordenado=1 tempo_min=4493.412588 tempo_max=4493.412588 tempo_medio=4493.412588 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+rep=1 tipo=mpi_balanceado np=1
+programa=mpi_balanceado tamanho=1000000 processos=1 entrada=0 tempo=4502.400125 ordenado=1 tempo_min=4502.400122 tempo_max=4502.400122 tempo_medio=4502.400122 desbalanceamento=0.000000 segmentos=1 processos_ativos=1
+fim=2026-06-18T17:44:29-03:00
