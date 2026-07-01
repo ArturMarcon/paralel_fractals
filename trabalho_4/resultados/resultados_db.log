@@ -1,0 +1,26 @@
+--- Início dos Experimentos Double Buffered ---
+>> Repetição 1
+Hibrido DB, Nos: 1, Threads: 1, Tempo: 443.561391s
+Hibrido DB, Nos: 1, Threads: 2, Tempo: 221.769076s
+Hibrido DB, Nos: 1, Threads: 4, Tempo: 117.080473s
+Hibrido DB, Nos: 1, Threads: 8, Tempo: 69.817064s
+Hibrido DB, Nos: 2, Threads: 8, Tempo: 33.926443s
+Hibrido DB, Nos: 4, Threads: 8, Tempo: 19.877227s
+Hibrido DB, Nos: 4, Threads: 16, Tempo: 16.781186s
+>> Repetição 2
+Hibrido DB, Nos: 1, Threads: 1, Tempo: 443.197821s
+Hibrido DB, Nos: 1, Threads: 2, Tempo: 222.395283s
+Hibrido DB, Nos: 1, Threads: 4, Tempo: 117.083524s
+Hibrido DB, Nos: 1, Threads: 8, Tempo: 69.909336s
+Hibrido DB, Nos: 2, Threads: 8, Tempo: 33.811966s
+Hibrido DB, Nos: 4, Threads: 8, Tempo: 20.089217s
+Hibrido DB, Nos: 4, Threads: 16, Tempo: 14.940304s
+>> Repetição 3
+Hibrido DB, Nos: 1, Threads: 1, Tempo: 443.531982s
+Hibrido DB, Nos: 1, Threads: 2, Tempo: 221.826765s
+Hibrido DB, Nos: 1, Threads: 4, Tempo: 117.557744s
+Hibrido DB, Nos: 1, Threads: 8, Tempo: 69.885174s
+Hibrido DB, Nos: 2, Threads: 8, Tempo: 33.885530s
+Hibrido DB, Nos: 4, Threads: 8, Tempo: 19.918900s
+Hibrido DB, Nos: 4, Threads: 16, Tempo: 16.301970s
+--- Fim dos Experimentos Double Buffered ---

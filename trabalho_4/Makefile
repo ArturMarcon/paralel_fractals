@@ -1,0 +1,21 @@
+CC=gcc
+MPICC=mpicc
+CFLAGS=-O3 -Wall
+LDFLAGS=-lm
+
+all: julia_dive_seq julia_dive_mpi julia_dive_hybrid julia_dive_hybrid_db
+
+julia_dive_seq: src/julia_dive_seq.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+julia_dive_mpi: src/julia_dive_mpi.c
+	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+julia_dive_hybrid: src/julia_dive_hybrid.c
+	$(MPICC) $(CFLAGS) -fopenmp -o $@ $^ $(LDFLAGS)
+
+julia_dive_hybrid_db: src/julia_dive_hybrid_db.c
+	$(MPICC) $(CFLAGS) -fopenmp -o $@ $^ $(LDFLAGS)
+
+clean:
+	rm -f julia_dive_seq julia_dive_mpi julia_dive_hybrid julia_dive_hybrid_db frame_*.ppm

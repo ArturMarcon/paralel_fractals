@@ -1,0 +1,25 @@
+--- Início dos Experimentos ---
+>> Repetição 1
+Hibrido, Nos: 1, Threads: 1, Tempo: 444.311796s
+Hibrido, Nos: 2, Threads: 1, Tempo: 224.056525s
+Hibrido, Nos: 4, Threads: 1, Tempo: 113.777866s
+Hibrido, Nos: 4, Threads: 2, Tempo: 58.656248s
+Hibrido, Nos: 4, Threads: 4, Tempo: 32.221025s
+Hibrido, Nos: 4, Threads: 8, Tempo: 19.416708s
+Hibrido, Nos: 4, Threads: 16, Tempo: 15.352889s
+MPI Only, Nos: 1, Threads: 1 (Processos=1), Tempo: 443.982938s
+MPI Only, Nos: 2, Threads: 1 (Processos=2), Tempo: 224.213290s
+MPI Only, Nos: 4, Threads: 1 (Processos=4), Tempo: 113.772137s
+MPI Only, Nos: 4, Threads: 1 (Processos=8), Tempo: 58.011703s
+MPI Only, Nos: 4, Threads: 1 (Processos=16), Tempo: 33.197881s
+MPI Only, Nos: 4, Threads: 1 (Processos=32), Tempo: 20.610511s
+>> Repetição 2
+Hibrido, Nos: 1, Threads: 1, Tempo: 443.923549s
+Hibrido, Nos: 2, Threads: 1, Tempo: 224.106772s
+Hibrido, Nos: 4, Threads: 1, Tempo: 113.737624s
+Hibrido, Nos: 4, Threads: 2, Tempo: 58.452676s
+Hibrido, Nos: 4, Threads: 4, Tempo: 32.517701s
+Hibrido, Nos: 4, Threads: 8, Tempo: 19.622316s
+Hibrido, Nos: 4, Threads: 16, Tempo: 14.931888s
+MPI Only, Nos: 1, Threads: 1 (Processos=1), Tempo: 444.008246s
+MPI Only, Nos: 2, Threads: 1 (Processos=2), Tempo: 224.153749s

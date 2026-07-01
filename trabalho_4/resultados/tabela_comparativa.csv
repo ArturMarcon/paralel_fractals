@@ -1,0 +1,22 @@
+programa,trabalhadores,tempo_s,speedup,eficiencia
+MPI Puro,1,443.7749,1.0000,1.0000
+MPI Puro,2,224.1053,1.9802,0.9901
+MPI Puro,4,116.3611,3.8138,0.9534
+MPI Puro,8,62.4775,7.1030,0.8879
+MPI Puro,16,31.9313,13.8978,0.8686
+MPI Puro,32,19.4555,22.8097,0.7128
+MPI Puro,63,13.7006,32.3910,0.5061
+Híbrido (MPI + OpenMP),1,443.6598,1.0003,1.0003
+Híbrido (MPI + OpenMP),2,223.5245,1.9854,0.9927
+Híbrido (MPI + OpenMP),4,117.3967,3.7801,0.9450
+Híbrido (MPI + OpenMP),8,70.1468,6.3264,0.7908
+Híbrido (MPI + OpenMP),16,32.8672,13.5021,0.8439
+Híbrido (MPI + OpenMP),32,18.9715,23.3917,0.7310
+Híbrido (MPI + OpenMP),64,14.4575,30.6952,0.4796
+Híbrido Double Buffered,1,443.5320,1.0005,1.0005
+Híbrido Double Buffered,2,221.8268,2.0005,1.0003
+Híbrido Double Buffered,4,117.0835,3.7902,0.9476
+Híbrido Double Buffered,8,69.8852,6.3501,0.7938
+Híbrido Double Buffered,16,33.8855,13.0963,0.8185
+Híbrido Double Buffered,32,19.9189,22.2791,0.6962
+Híbrido Double Buffered,64,16.3020,27.2222,0.4253
